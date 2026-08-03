@@ -5,7 +5,7 @@
   "description": "Newlands SDA Church Programme Planner",
   "main": "server.js",
   "engines": {
-    "node": ">=22.5.0"
+    "node": "22.x"
   },
   "scripts": {
     "start": "node server.js"

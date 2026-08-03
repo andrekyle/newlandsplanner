@@ -316,7 +316,9 @@ async function handleRequest(req, res) {
   }
 }
 
-if (require.main === module) {
+// Start the HTTP server when run directly (node server.js) or when a host
+// (e.g. Vercel's Node server build) imports this file as the app entry point.
+if (require.main === module || IS_VERCEL) {
   const server = http.createServer(handleRequest);
   server.listen(PORT, () => {
     console.log(`Newlands SDA Church Programme Planner running at http://localhost:${PORT}`);

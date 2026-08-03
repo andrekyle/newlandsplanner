@@ -69,19 +69,8 @@ if (USE_SUPABASE) {
   };
 } else {
   // ---- Local SQLite backend (development / single-machine use) ----
-  let DatabaseSync;
   try {
-    ({ DatabaseSync } = require('node:sqlite'));
-  } catch (e) {
-    // node:sqlite unavailable (e.g. serverless runtime without the experimental flag)
-    console.error('SQLite unavailable and SUPABASE_SERVICE_ROLE_KEY not set:', e.message);
-    const fail = async () => { throw new Error('Storage not configured: set the SUPABASE_SERVICE_ROLE_KEY environment variable.'); };
-    store = {
-      monthEvents: fail, dayEvents: fail, getEvent: fail, insertEvent: fail,
-      updateEvent: fail, deleteEvent: fail, namesFor: fail, allNames: fail, bumpName: fail,
-    };
-  }
-  if (DatabaseSync) {
+  const { DatabaseSync } = require('node:sqlite');
   // Vercel's writable filesystem is /tmp (ephemeral between instances/cold starts).
   const DB_PATH = IS_VERCEL ? '/tmp/programmes.db' : path.join(__dirname, 'programmes.db');
   const db = new DatabaseSync(DB_PATH);
@@ -147,6 +136,14 @@ if (USE_SUPABASE) {
     async allNames() { return allNamesStmt.all().map(r => r.name); },
     async bumpName(field, name) { bumpNameStmt.run(field, name); },
   };
+  } catch (e) {
+    // SQLite unavailable or failed to initialise (e.g. serverless runtime) — never crash the function.
+    console.error('SQLite storage unavailable and SUPABASE_SERVICE_ROLE_KEY not set:', e.message);
+    const fail = async () => { throw new Error('Storage not configured: set the SUPABASE_SERVICE_ROLE_KEY environment variable.'); };
+    store = {
+      monthEvents: fail, dayEvents: fail, getEvent: fail, insertEvent: fail,
+      updateEvent: fail, deleteEvent: fail, namesFor: fail, allNames: fail, bumpName: fail,
+    };
   }
 }
 
@@ -212,6 +209,13 @@ async function handleRequest(req, res) {
   const host = req.headers.host || 'localhost';
   const url = new URL(req.url, `http://${host}`);
   try {
+
+  // --- health / diagnostics
+  if (url.pathname === '/api/health' && req.method === 'GET') {
+    let ok = true, detail = '';
+    try { await store.monthEvents('2000-01'); } catch (e) { ok = false; detail = e.message; }
+    return json(res, ok ? 200 : 500, { ok, storage: USE_SUPABASE ? 'supabase' : 'sqlite', node: process.version, vercel: IS_VERCEL, detail });
+  }
 
   // --- month overview: { 'YYYY-MM-DD': [{id,type,complete}] }
   if (url.pathname === '/api/month' && req.method === 'GET') {

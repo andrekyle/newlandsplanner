@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Newlands SDA Church Programme Planner",
-  "main": "server.js",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "start": "node server.js"
   }

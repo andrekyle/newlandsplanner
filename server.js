@@ -69,7 +69,19 @@ if (USE_SUPABASE) {
   };
 } else {
   // ---- Local SQLite backend (development / single-machine use) ----
-  const { DatabaseSync } = require('node:sqlite');
+  let DatabaseSync;
+  try {
+    ({ DatabaseSync } = require('node:sqlite'));
+  } catch (e) {
+    // node:sqlite unavailable (e.g. serverless runtime without the experimental flag)
+    console.error('SQLite unavailable and SUPABASE_SERVICE_ROLE_KEY not set:', e.message);
+    const fail = async () => { throw new Error('Storage not configured: set the SUPABASE_SERVICE_ROLE_KEY environment variable.'); };
+    store = {
+      monthEvents: fail, dayEvents: fail, getEvent: fail, insertEvent: fail,
+      updateEvent: fail, deleteEvent: fail, namesFor: fail, allNames: fail, bumpName: fail,
+    };
+  }
+  if (DatabaseSync) {
   // Vercel's writable filesystem is /tmp (ephemeral between instances/cold starts).
   const DB_PATH = IS_VERCEL ? '/tmp/programmes.db' : path.join(__dirname, 'programmes.db');
   const db = new DatabaseSync(DB_PATH);
@@ -135,6 +147,7 @@ if (USE_SUPABASE) {
     async allNames() { return allNamesStmt.all().map(r => r.name); },
     async bumpName(field, name) { bumpNameStmt.run(field, name); },
   };
+  }
 }
 
 // Required fields per event type for the "complete" indicator.
@@ -294,7 +307,8 @@ async function handleRequest(req, res) {
 
   } catch (err) {
     console.error('Request failed:', err);
-    if (!res.headersSent) return json(res, 500, { error: 'Server error. Please try again.' });
+    const msg = /^Storage not configured/.test(err.message || '') ? err.message : 'Server error. Please try again.';
+    if (!res.headersSent) return json(res, 500, { error: msg });
   }
 }
 

@@ -316,9 +316,10 @@ async function handleRequest(req, res) {
   }
 }
 
-// Start the HTTP server only when run directly (node server.js).
-// On Vercel, requests are handled by the serverless function in api/.
-if (require.main === module) {
+// Start the HTTP server when run directly (node server.js) or when hosted on
+// Vercel's Node.js server runtime (which imports this module and expects it to
+// listen on process.env.PORT).
+if (require.main === module || IS_VERCEL) {
   const server = http.createServer(handleRequest);
   server.listen(PORT, () => {
     console.log(`Newlands SDA Church Programme Planner running at http://localhost:${PORT}`);
@@ -327,4 +328,8 @@ if (require.main === module) {
   });
 }
 
-module.exports = { handleRequest };
+// Export handleRequest as both the default export (so Vercel's serverless
+// handler contract `(req, res) => ...` is satisfied) and as a named property
+// (for `const { handleRequest } = require('./server')`).
+module.exports = handleRequest;
+module.exports.handleRequest = handleRequest;
